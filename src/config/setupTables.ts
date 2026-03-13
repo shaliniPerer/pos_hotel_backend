@@ -199,5 +199,58 @@ export async function setupTables() {
     console.log(`  Table "${TABLES.COUNTERS}" already exists.`);
   }
 
+  // Event Functions table
+  if (!(await tableExists(TABLES.EVENT_FUNCTIONS))) {
+    await rawClient.send(
+      new CreateTableCommand({
+        TableName: TABLES.EVENT_FUNCTIONS,
+        BillingMode: BillingMode.PAY_PER_REQUEST,
+        AttributeDefinitions: [{ AttributeName: 'id', AttributeType: 'S' }],
+        KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+      })
+    );
+    console.log(`  Created table "${TABLES.EVENT_FUNCTIONS}". Waiting for ACTIVE...`);
+    await waitForTableActive(TABLES.EVENT_FUNCTIONS);
+    console.log(`  Table "${TABLES.EVENT_FUNCTIONS}" is ACTIVE.`);
+  } else {
+    console.log(`  Table "${TABLES.EVENT_FUNCTIONS}" already exists.`);
+  }
+
+  // Event Bookings table
+  if (!(await tableExists(TABLES.EVENT_BOOKINGS))) {
+    await rawClient.send(
+      new CreateTableCommand({
+        TableName: TABLES.EVENT_BOOKINGS,
+        BillingMode: BillingMode.PAY_PER_REQUEST,
+        AttributeDefinitions: [
+          { AttributeName: 'id', AttributeType: 'S' },
+          { AttributeName: 'event_date', AttributeType: 'S' },
+          { AttributeName: 'status', AttributeType: 'S' },
+        ],
+        KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+        GlobalSecondaryIndexes: [
+          {
+            IndexName: 'DateIndex',
+            KeySchema: [{ AttributeName: 'event_date', KeyType: 'HASH' }],
+            Projection: { ProjectionType: 'ALL' },
+          },
+          {
+            IndexName: 'StatusIndex',
+            KeySchema: [
+              { AttributeName: 'status', KeyType: 'HASH' },
+              { AttributeName: 'event_date', KeyType: 'RANGE' },
+            ],
+            Projection: { ProjectionType: 'ALL' },
+          },
+        ],
+      })
+    );
+    console.log(`  Created table "${TABLES.EVENT_BOOKINGS}". Waiting for ACTIVE...`);
+    await waitForTableActive(TABLES.EVENT_BOOKINGS);
+    console.log(`  Table "${TABLES.EVENT_BOOKINGS}" is ACTIVE.`);
+  } else {
+    console.log(`  Table "${TABLES.EVENT_BOOKINGS}" already exists.`);
+  }
+
   console.log('DynamoDB table setup complete.');
 }

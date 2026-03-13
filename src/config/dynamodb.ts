@@ -34,4 +34,6 @@ export const TABLES = {
   ORDERS: 'hotelmate-orders',
   ORDER_ITEMS: 'hotelmate-order-items',
   COUNTERS: 'hotelmate-counters',
+  EVENT_FUNCTIONS: 'hotelmate-event-functions',
+  EVENT_BOOKINGS: 'hotelmate-event-bookings',
 } as const;

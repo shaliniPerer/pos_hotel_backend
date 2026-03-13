@@ -20,12 +20,12 @@ router.get('/', authenticate, async (_req: AuthenticatedRequest, res: Response):
 
 // POST /api/categories
 router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { name, color, sort_order } = req.body;
+  const { name, color, sort_order, menu_type } = req.body;
   if (!name) {
     res.status(400).json({ error: 'Name is required' });
     return;
   }
-  const item = { id: uuidv4(), name, color: color || 'bg-slate-100', sort_order: sort_order || 0 };
+  const item = { id: uuidv4(), name, color: color || 'bg-slate-100', sort_order: sort_order || 0, menu_type: menu_type || 'restaurant' };
   try {
     await docClient.send(new PutCommand({ TableName: TABLES.CATEGORIES, Item: item }));
     res.status(201).json(item);
@@ -45,7 +45,7 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res: Response
       res.status(404).json({ error: 'Category not found' });
       return;
     }
-    const updated = { ...existing.Item, name: name ?? existing.Item.name, color: color ?? existing.Item.color, sort_order: sort_order ?? existing.Item.sort_order };
+    const updated = { ...existing.Item, name: name ?? existing.Item.name, color: color ?? existing.Item.color, sort_order: sort_order ?? existing.Item.sort_order, menu_type: req.body.menu_type ?? existing.Item.menu_type ?? 'restaurant' };
     await docClient.send(new PutCommand({ TableName: TABLES.CATEGORIES, Item: updated }));
     res.json(updated);
   } catch (err) {
