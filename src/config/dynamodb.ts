@@ -36,4 +36,8 @@ export const TABLES = {
   COUNTERS: 'hotelmate-counters',
   EVENT_FUNCTIONS: 'hotelmate-event-functions',
   EVENT_BOOKINGS: 'hotelmate-event-bookings',
+  ROOMS: 'hotelmate-rooms',
+  ROOM_BOOKINGS: 'hotelmate-room-bookings',
+  EXPENSE_CATEGORIES: 'hotelmate-expense-categories',
+  EXPENSES: 'hotelmate-expenses',
 } as const;

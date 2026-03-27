@@ -13,6 +13,8 @@ import productsRoutes from './routes/products';
 import ordersRoutes, { setIO } from './routes/orders';
 import reportsRoutes from './routes/reports';
 import eventsRoutes from './routes/events';
+import roomsRoutes from './routes/rooms';
+import expensesRoutes from './routes/expenses';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 
@@ -63,6 +65,8 @@ async function startServer() {
   app.use('/api/orders', ordersRoutes);
   app.use('/api/reports', reportsRoutes);
   app.use('/api/events', eventsRoutes);
+  app.use('/api/rooms', roomsRoutes);
+  app.use('/api/expenses', expensesRoutes);
 
   // 7. Start listening
   httpServer.listen(PORT, '0.0.0.0', () => {

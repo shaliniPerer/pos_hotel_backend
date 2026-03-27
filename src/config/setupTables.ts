@@ -252,5 +252,87 @@ export async function setupTables() {
     console.log(`  Table "${TABLES.EVENT_BOOKINGS}" already exists.`);
   }
 
+  // Rooms table
+  if (!(await tableExists(TABLES.ROOMS))) {
+    await rawClient.send(
+      new CreateTableCommand({
+        TableName: TABLES.ROOMS,
+        BillingMode: BillingMode.PAY_PER_REQUEST,
+        AttributeDefinitions: [{ AttributeName: 'id', AttributeType: 'S' }],
+        KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+      })
+    );
+    console.log(`  Created table "${TABLES.ROOMS}". Waiting for ACTIVE...`);
+    await waitForTableActive(TABLES.ROOMS);
+    console.log(`  Table "${TABLES.ROOMS}" is ACTIVE.`);
+  } else {
+    console.log(`  Table "${TABLES.ROOMS}" already exists.`);
+  }
+
+  // Room Bookings table
+  if (!(await tableExists(TABLES.ROOM_BOOKINGS))) {
+    await rawClient.send(
+      new CreateTableCommand({
+        TableName: TABLES.ROOM_BOOKINGS,
+        BillingMode: BillingMode.PAY_PER_REQUEST,
+        AttributeDefinitions: [
+          { AttributeName: 'id', AttributeType: 'S' },
+          { AttributeName: 'room_id', AttributeType: 'S' },
+          { AttributeName: 'checkin_date', AttributeType: 'S' },
+        ],
+        KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+        GlobalSecondaryIndexes: [
+          {
+            IndexName: 'RoomCheckinIndex',
+            KeySchema: [
+              { AttributeName: 'room_id', KeyType: 'HASH' },
+              { AttributeName: 'checkin_date', KeyType: 'RANGE' },
+            ],
+            Projection: { ProjectionType: 'ALL' },
+          },
+        ],
+      })
+    );
+    console.log(`  Created table "${TABLES.ROOM_BOOKINGS}". Waiting for ACTIVE...`);
+    await waitForTableActive(TABLES.ROOM_BOOKINGS);
+    console.log(`  Table "${TABLES.ROOM_BOOKINGS}" is ACTIVE.`);
+  } else {
+    console.log(`  Table "${TABLES.ROOM_BOOKINGS}" already exists.`);
+  }
+
+  // Expense Categories table
+  if (!(await tableExists(TABLES.EXPENSE_CATEGORIES))) {
+    await rawClient.send(
+      new CreateTableCommand({
+        TableName: TABLES.EXPENSE_CATEGORIES,
+        BillingMode: BillingMode.PAY_PER_REQUEST,
+        AttributeDefinitions: [{ AttributeName: 'id', AttributeType: 'S' }],
+        KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+      })
+    );
+    console.log(`  Created table "${TABLES.EXPENSE_CATEGORIES}". Waiting for ACTIVE...`);
+    await waitForTableActive(TABLES.EXPENSE_CATEGORIES);
+    console.log(`  Table "${TABLES.EXPENSE_CATEGORIES}" is ACTIVE.`);
+  } else {
+    console.log(`  Table "${TABLES.EXPENSE_CATEGORIES}" already exists.`);
+  }
+
+  // Expenses table
+  if (!(await tableExists(TABLES.EXPENSES))) {
+    await rawClient.send(
+      new CreateTableCommand({
+        TableName: TABLES.EXPENSES,
+        BillingMode: BillingMode.PAY_PER_REQUEST,
+        AttributeDefinitions: [{ AttributeName: 'id', AttributeType: 'S' }],
+        KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+      })
+    );
+    console.log(`  Created table "${TABLES.EXPENSES}". Waiting for ACTIVE...`);
+    await waitForTableActive(TABLES.EXPENSES);
+    console.log(`  Table "${TABLES.EXPENSES}" is ACTIVE.`);
+  } else {
+    console.log(`  Table "${TABLES.EXPENSES}" already exists.`);
+  }
+
   console.log('DynamoDB table setup complete.');
 }
