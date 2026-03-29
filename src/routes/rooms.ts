@@ -5,6 +5,7 @@ import {
   GetCommand,
   DeleteCommand,
   QueryCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { docClient, TABLES } from '../config/dynamodb';
@@ -214,11 +215,21 @@ router.post('/bookings', authenticate, async (req: AuthenticatedRequest, res: Re
       return;
     }
     const now = new Date().toISOString();
+    // Atomically increment reservation counter
+    const counterResult = await docClient.send(new UpdateCommand({
+      TableName: TABLES.COUNTERS,
+      Key: { counter_name: 'reservation_number' },
+      UpdateExpression: 'ADD #val :one',
+      ExpressionAttributeNames: { '#val': 'value' },
+      ExpressionAttributeValues: { ':one': 1 },
+      ReturnValues: 'UPDATED_NEW',
+    }));
+    const autoResNumber = String(counterResult.Attributes?.value || 1).padStart(3, '0');
     const booking = {
       id: uuidv4(),
       room_id: String(room_id),
       room_name: room_name || '',
-      reservation_number: reservation_number || `RES-${Date.now().toString(36).slice(-6).toUpperCase()}`,
+      reservation_number: reservation_number || autoResNumber,
       channel: channel || 'FIT',
       customer_name: String(customer_name).trim(),
       contact_number: contact_number ? String(contact_number).trim() : '',
