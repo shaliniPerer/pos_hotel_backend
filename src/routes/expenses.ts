@@ -3,8 +3,34 @@ import { ScanCommand, PutCommand, GetCommand, DeleteCommand } from '@aws-sdk/lib
 import { v4 as uuidv4 } from 'uuid';
 import { docClient, TABLES } from '../config/dynamodb';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const router = Router();
+
+// ── Image upload setup ────────────────────────────────────────────────────────
+const uploadsDir = path.join(process.cwd(), 'uploads', 'expenses');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  },
+});
+
+// POST /api/expenses/upload-image
+router.post('/upload-image', authenticate, upload.single('image'), (req: AuthenticatedRequest, res: Response): void => {
+  if (!req.file) { res.status(400).json({ error: 'No image file provided' }); return; }
+  res.json({ url: `/uploads/expenses/${req.file.filename}` });
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EXPENSE CATEGORIES

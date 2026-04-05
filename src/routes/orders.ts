@@ -117,7 +117,7 @@ router.get('/:id', authenticate, async (req: AuthenticatedRequest, res: Response
 
 // POST /api/orders
 router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { type, reference, items, subtotal, tax, discount, total, payment_method, paid_amount, status } = req.body;
+  const { type, reference, items, subtotal, tax, discount, total, payment_method, paid_amount, status, staff_id, staff_name } = req.body;
 
   if (!items || !Array.isArray(items)) {
     res.status(400).json({ error: 'Items array is required' });
@@ -151,6 +151,8 @@ router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response):
     payment_method: payment_method || 'cash',
     paid_amount: paid_amount ? Number(paid_amount) : undefined,
     cashier_id: req.user?.id || '',
+    ...(staff_id ? { staff_id } : {}),
+    ...(staff_name ? { staff_name } : {}),
     created_at: now,
     updated_at: now,
   };

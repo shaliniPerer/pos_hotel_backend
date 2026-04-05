@@ -2,12 +2,14 @@ import 'dotenv/config';
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
+import path from 'path';
 import { Server } from 'socket.io';
 
 import { setupTables } from './config/setupTables';
 import { seedData } from './seed';
 
 import authRoutes from './routes/auth';
+import usersRoutes from './routes/users';
 import categoriesRoutes from './routes/categories';
 import productsRoutes from './routes/products';
 import ordersRoutes, { setIO } from './routes/orders';
@@ -51,7 +53,10 @@ async function startServer() {
       credentials: true,
     })
   );
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
+
+  // Static file serving for uploaded images
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // 5. Health check
   app.get('/health', (_req, res) => {
@@ -60,6 +65,7 @@ async function startServer() {
 
   // 6. API Routes
   app.use('/api/auth', authRoutes);
+  app.use('/api/users', usersRoutes);
   app.use('/api/categories', categoriesRoutes);
   app.use('/api/products', productsRoutes);
   app.use('/api/orders', ordersRoutes);

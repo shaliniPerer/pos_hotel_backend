@@ -44,6 +44,8 @@ export interface Order {
   payment_method: string;
   paid_amount?: number;
   cashier_id: string;
+  staff_id?: string;
+  staff_name?: string;
   created_at: string;
   updated_at: string;
   items?: OrderItem[];
