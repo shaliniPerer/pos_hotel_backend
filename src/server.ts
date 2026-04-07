@@ -53,6 +53,7 @@ async function startServer() {
       credentials: true,
     })
   );
+  app.options('*', cors());
   app.use(express.json({ limit: '10mb' }));
 
   // Static file serving for uploaded images
