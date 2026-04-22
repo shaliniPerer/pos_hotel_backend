@@ -138,6 +138,17 @@ router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response):
   }));
   const orderNumber = String(counterResult.Attributes?.value || 1).padStart(3, '0');
 
+  // Build initial KOT/BOT events
+  const initKotItems = items.filter((i: any) => (i.kot_type || 'KOT') === 'KOT');
+  const initBotItems = items.filter((i: any) => (i.kot_type || 'KOT') === 'BOT');
+  const initEvents: any[] = [];
+  if (initKotItems.length > 0) {
+    initEvents.push({ event_type: 'KOT_SENT', timestamp: now, items: initKotItems.map((i: any) => ({ product_id: i.product_id, product_name: i.product_name, quantity: Number(i.quantity), price: Number(i.price) })) });
+  }
+  if (initBotItems.length > 0) {
+    initEvents.push({ event_type: 'BOT_SENT', timestamp: now, items: initBotItems.map((i: any) => ({ product_id: i.product_id, product_name: i.product_name, quantity: Number(i.quantity), price: Number(i.price) })) });
+  }
+
   const order = {
     id: orderId,
     order_number: orderNumber,
@@ -153,6 +164,7 @@ router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response):
     cashier_id: req.user?.id || '',
     ...(staff_id ? { staff_id } : {}),
     ...(staff_name ? { staff_name } : {}),
+    events: initEvents,
     created_at: now,
     updated_at: now,
   };
@@ -171,6 +183,7 @@ router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response):
         product_name: item.product_name,
         quantity: Number(item.quantity),
         price: Number(item.price),
+        kot_type: item.kot_type || 'KOT',
       };
       await docClient.send(new PutCommand({ TableName: TABLES.ORDER_ITEMS, Item: orderItem }));
       savedItems.push(orderItem);
@@ -198,28 +211,46 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res: Response
     }
 
     const now = new Date().toISOString();
-    const updated = {
-      ...existing.Item,
-      status: status ?? existing.Item.status,
-      payment_method: payment_method ?? existing.Item.payment_method,
-      paid_amount: paid_amount !== undefined ? Number(paid_amount) : existing.Item.paid_amount,
-      subtotal: subtotal !== undefined ? Number(subtotal) : existing.Item.subtotal,
-      tax: tax !== undefined ? Number(tax) : existing.Item.tax,
-      discount: discount !== undefined ? Number(discount) : existing.Item.discount,
-      total: total !== undefined ? Number(total) : existing.Item.total,
-      updated_at: now,
-    };
-
-    await docClient.send(new PutCommand({ TableName: TABLES.ORDERS, Item: updated }));
-
+    // Build updated events (detect additions & removals)
+    let updatedEvents = existing.Item.events || [];
     let savedItems;
     if (items && Array.isArray(items)) {
-      // Delete old items
       const oldItems = await getOrderItems(id);
+
+      // Detect removed items (present in old but absent/reduced in new)
+      const removedItems: any[] = [];
       for (const oldItem of oldItems) {
-        await docClient.send(
-          new DeleteCommand({ TableName: TABLES.ORDER_ITEMS, Key: { id: oldItem.id } })
-        );
+        const newItem = items.find((i: any) => i.product_id === oldItem.product_id);
+        if (!newItem) {
+          removedItems.push({ product_id: oldItem.product_id, product_name: oldItem.product_name, quantity: oldItem.quantity, price: oldItem.price, kot_type: oldItem.kot_type || 'KOT' });
+        } else if (Number(newItem.quantity) < oldItem.quantity) {
+          removedItems.push({ product_id: oldItem.product_id, product_name: oldItem.product_name, quantity: oldItem.quantity - Number(newItem.quantity), price: oldItem.price, kot_type: oldItem.kot_type || 'KOT' });
+        }
+      }
+
+      // Detect added items (absent/increased in old vs new)
+      const addedKot: any[] = [];
+      const addedBot: any[] = [];
+      for (const newItem of items) {
+        const oldItem = oldItems.find((i: any) => i.product_id === newItem.product_id);
+        const kt = newItem.kot_type || 'KOT';
+        if (!oldItem) {
+          (kt === 'BOT' ? addedBot : addedKot).push({ product_id: newItem.product_id, product_name: newItem.product_name, quantity: Number(newItem.quantity), price: Number(newItem.price) });
+        } else if (Number(newItem.quantity) > oldItem.quantity) {
+          const extra = { product_id: newItem.product_id, product_name: newItem.product_name, quantity: Number(newItem.quantity) - oldItem.quantity, price: Number(newItem.price) };
+          (kt === 'BOT' ? addedBot : addedKot).push(extra);
+        }
+      }
+
+      const newEvents = [...updatedEvents];
+      if (addedKot.length > 0) newEvents.push({ event_type: 'KOT_SENT', timestamp: now, items: addedKot });
+      if (addedBot.length > 0) newEvents.push({ event_type: 'BOT_SENT', timestamp: now, items: addedBot });
+      if (removedItems.length > 0) newEvents.push({ event_type: 'ITEMS_REMOVED', timestamp: now, items: removedItems });
+      updatedEvents = newEvents;
+
+      // Delete old items
+      for (const oldItem of oldItems) {
+        await docClient.send(new DeleteCommand({ TableName: TABLES.ORDER_ITEMS, Key: { id: oldItem.id } }));
       }
       // Insert new items
       savedItems = [];
@@ -231,6 +262,7 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res: Response
           product_name: item.product_name,
           quantity: Number(item.quantity),
           price: Number(item.price),
+          kot_type: item.kot_type || 'KOT',
         };
         await docClient.send(new PutCommand({ TableName: TABLES.ORDER_ITEMS, Item: orderItem }));
         savedItems.push(orderItem);
@@ -238,6 +270,21 @@ router.put('/:id', authenticate, async (req: AuthenticatedRequest, res: Response
     } else {
       savedItems = await getOrderItems(id);
     }
+
+    const updated = {
+      ...existing.Item,
+      status: status ?? existing.Item.status,
+      payment_method: payment_method ?? existing.Item.payment_method,
+      paid_amount: paid_amount !== undefined ? Number(paid_amount) : existing.Item.paid_amount,
+      subtotal: subtotal !== undefined ? Number(subtotal) : existing.Item.subtotal,
+      tax: tax !== undefined ? Number(tax) : existing.Item.tax,
+      discount: discount !== undefined ? Number(discount) : existing.Item.discount,
+      total: total !== undefined ? Number(total) : existing.Item.total,
+      events: updatedEvents,
+      updated_at: now,
+    };
+
+    await docClient.send(new PutCommand({ TableName: TABLES.ORDERS, Item: updated }));
 
     const fullOrder = { ...updated, items: savedItems };
     if (io) io.emit('order:updated', fullOrder);
